@@ -1,0 +1,19 @@
+{
+  "name": "semantic-highlighting-javascript.vim",
+  "version": "0.0.1",
+  "description": "JavaScript highlighting extension for jaxbot/semantic-highlighting.vim",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:faceleg/semantic-highlight-javascript.vim.git"
+  },
+  "keywords": [
+    "vim",
+    "javascript"
+  ],
+  "author": "mike@pagesofinterest.net",
+  "license": "MIT",
+  "readmeFilename": "README.md",
+  "dependencies": {
+    "uglify-js": "~2.4.15"
+  }
+}

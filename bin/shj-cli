@@ -1,0 +1,81 @@
+#!/usr/bin/env node
+// A lot of code and ideas pillaged from:
+// https://github.com/bigfish/vim-js-context-coloring/blob/master/ftplugin/javascript.vim
+
+/*jshint node:true, strict:false*/
+var input_js = '';
+var UglifyJS = require("../node_modules/uglify-js/tools/node.js");
+var scopes = [];
+
+process.stdin.resume();
+
+process.stdin.on('data', function(chunk) {
+    input_js += chunk;
+});
+
+process.stdin.on('end', function() {
+    var toplevel = UglifyJS.parse(input_js);
+    toplevel.figure_out_scope();
+    process.stdin.setEncoding('utf8');
+
+    var walker = new UglifyJS.TreeWalker(function(node) {
+
+        var level, def, scope;
+
+        // AST_Accessor inherits AST_Scope but does not have start/end
+        // these must be obtained from AST_ObjectSetter/Getter property node
+        // which has the accessor function as its value. So to fix the issue
+        // just set the start and end manually using the Getter/Setter's values
+
+        if (node instanceof UglifyJS.AST_ObjectGetter || node instanceof UglifyJS.AST_ObjectSetter) {
+
+            //only start highlighting after get / set keyword
+            node.value.start = {
+                pos: node.start.pos + 4
+            };
+            node.value.end = {
+                endpos: node.end.endpos
+            };
+        }
+
+        if (node instanceof UglifyJS.AST_Scope) {
+
+            // annotate Scope Nodes with level info
+            if (node.level === undefined) {
+                node.level = node.parent_scope ? node.parent_scope.level + 1 : 0;
+                var enclosed = {};
+                node.enclosed.forEach(function(v) {
+                    enclosed[v.name] = v.scope.level;
+                });
+                var variables = [];
+
+                Object.keys(node.variables._values).forEach(function(key) {
+                    var variable = node.variables._values[key];
+                    var line = -1;
+                    if (variable.init) {
+                        line = variable.init.start.line;
+                    } else {
+                        line = variable.orig[0].start.line;
+                    }
+                    variables.push({
+                        level: variable.scope.level,
+                        line: line,
+                        name: variable.name
+                    });
+                });
+                scope = [node.level, node.start.pos, node.end.endpos, enclosed, variables];
+
+                //add named function definitions
+                if (node instanceof UglifyJS.AST_Defun) {
+                    scope.push(node.name.name);
+                }
+                scopes.push(scope);
+            }
+        }
+    });
+    toplevel.walk(walker);
+
+    process.stdout.write(JSON.stringify({
+        scopes: scopes
+    }));
+});
